@@ -1,0 +1,16 @@
+tunnel: e4f748ab-3b6c-4cf1-b05d-c10d0a228c4a
+credentials-file: /home/serverlab/.cloudflared/e4f748ab-3b6c-4cf1-b05d-c10d0a228c4a.json
+
+ingress:
+  - hostname: sshserver.alcosta-cse.net
+    service: ssh://localhost:22
+  - hostname: nextcloud.alcosta-cse.net
+    service: http://localhost:80
+  - hostname: n8n.alcosta-cse.net
+    service: http://localhost:5678
+  - hostname: wc2026.alcosta-cse.net
+    service: http://localhost:80
+  - service: http_status:404
+
+loglevel: info
+logfile: /var/log/cloudflared.log

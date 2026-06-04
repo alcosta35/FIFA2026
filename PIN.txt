@@ -1,0 +1,1 @@
+sudo systemctl cat wc2026 | grep ADMIN_PIN

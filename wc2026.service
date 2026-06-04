@@ -1,0 +1,29 @@
+[Unit]
+Description=WC2026 Bolão – API Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/wc2026
+
+# Path to Python and script
+ExecStart=/usr/bin/python3 /opt/wc2026/api.py
+
+# Data file location
+Environment=WC_DATA_FILE=/opt/wc2026/bets.json
+Environment=WC_HOST=127.0.0.1
+Environment=WC_PORT=5050
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wc2026
+
+[Install]
+WantedBy=multi-user.target

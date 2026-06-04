@@ -1,0 +1,32 @@
+[Unit]
+Description=GSYFIFA2026 Bolão – API Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/gsyfifa2026
+
+# Uses the venv Python — same reason as wc2026:
+# Ubuntu 22.04+ blocks system-level pip installs (PEP 668 "externally managed").
+# A venv at /opt/gsyfifa2026/venv/ isolates the Flask packages cleanly.
+ExecStart=/opt/gsyfifa2026/venv/bin/python /opt/gsyfifa2026/api.py
+
+# Data directory and settings
+Environment=GSY_DATA_DIR=/opt/gsyfifa2026
+Environment=GSY_HOST=127.0.0.1
+Environment=GSY_PORT=5051
+Environment=GSY_ADMIN_PIN=MEUPIN
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gsyfifa2026
+
+[Install]
+WantedBy=multi-user.target
