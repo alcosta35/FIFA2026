@@ -1600,17 +1600,13 @@ function renderFinalForm(){
   const r=$.results;
   // Finalists = SF winners from official results
   const sfW=[r.sf?.[0]||r.sf?.["0"]||"TBD", r.sf?.[1]||r.sf?.["1"]||"TBD"];
-  // SF losers (3rd place match)
-  const qfW=[r.qf?.[0]||r.qf?.["0"]||"TBD",r.qf?.[1]||r.qf?.["1"]||"TBD",
-             r.qf?.[2]||r.qf?.["2"]||"TBD",r.qf?.[3]||r.qf?.["3"]||"TBD"];
-  // SF losers = non-winners from each SF match
-  const sfPairs=SFP.map(([a,b])=>({
-    t1:qfW[a]&&qfW[a]!=="TBD"?(r.sf?.[a]||r.sf?.[String(a)]||"TBD"):"TBD",
-    t2:qfW[b]&&qfW[b]!=="TBD"?(r.sf?.[b]||r.sf?.[String(b)]||"TBD"):"TBD"
-  }));
+  // SF teams = QF winners paired by SFP; SF losers = those who didn't advance
+  const qfW=[r.qf?.["0"]||"TBD",r.qf?.["1"]||"TBD",r.qf?.["2"]||"TBD",r.qf?.["3"]||"TBD"];
+  // sfPairs: who played in each SF match (QF winner a vs QF winner b)
+  const sfPairs=SFP.map(([a,b])=>({t1:qfW[a],t2:qfW[b]}));
   const sfL=[
-    [sfPairs[0].t1,sfPairs[0].t2].find(t=>t&&t!==sfW[0])||"TBD",
-    [sfPairs[1].t1,sfPairs[1].t2].find(t=>t&&t!==sfW[1])||"TBD"
+    [sfPairs[0].t1,sfPairs[0].t2].find(t=>t&&t!=="TBD"&&t!==sfW[0])||"TBD",
+    [sfPairs[1].t1,sfPairs[1].t2].find(t=>t&&t!=="TBD"&&t!==sfW[1])||"TBD"
   ];
   const ch=$.finalChampion,th=$.finalThird;
   const tbd=(t)=>!t||t==="TBD";
