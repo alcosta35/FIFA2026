@@ -2018,7 +2018,10 @@ function togglePhase(p){
 function _adminBuildKO(){
   const pt=$.lang==="pt";
   const ogs=$.adminOgs;
-  const r32m=buildR32fromAdminOgs(ogs);
+  const hasGroupResults=Object.keys(ogs).length>0;
+  const r32m=hasGroupResults
+    ?buildR32fromAdminOgs(ogs)
+    :Array.from({length:16},()=>({t1:"TBD",t2:"TBD",l1:"",l2:""}));
   const r16m=R16P.map(([a,b])=>({t1:$.adminKO.r32[a]||$.adminKO.r32[String(a)]||"TBD",t2:$.adminKO.r32[b]||$.adminKO.r32[String(b)]||"TBD"}));
   const qfm=QFP.map(([a,b])=>({t1:$.adminKO.r16[a]||$.adminKO.r16[String(a)]||"TBD",t2:$.adminKO.r16[b]||$.adminKO.r16[String(b)]||"TBD"}));
   const sfm=SFP.map(([a,b])=>({t1:$.adminKO.qf[a]||$.adminKO.qf[String(a)]||"TBD",t2:$.adminKO.qf[b]||$.adminKO.qf[String(b)]||"TBD"}));
@@ -2028,14 +2031,16 @@ function _adminBuildKO(){
     matches.forEach((m,i)=>{
       const w=$.adminKO[prefix]?.[i]||$.adminKO[prefix]?.[String(i)]||"";
       const tbd=m.t1==="TBD"||m.t2==="TBD";
-      const s1=(m.t1||"").replace(/'/g,"\\'"),s2=(m.t2||"").replace(/'/g,"\\'");
+      const s1=(m.t1||"").replace(/'/g,"\'"),s2=(m.t2||"").replace(/'/g,"\'");
+      const lb1=m.l1?_lbl(m.l1):"";
+      const lb2=m.l2?_lbl(m.l2):"";
       h+=`<div style="display:flex;align-items:center;gap:.4rem;padding:.45rem 0;border-bottom:1px solid #0c1520">
         <span class="ares-meta" style="min-width:18px">${i+1}</span>
         <button class="ko-pick-btn${w===m.t1?" ko-win":""}${tbd?" ko-tbd":""}"
-          onclick="pickAdminKO('${prefix}',${i},'${s1}')">${f(m.t1)} ${tn(m.t1)}</button>
+          onclick="pickAdminKO('${prefix}',${i},'${s1}')">${lb1}${f(m.t1)} ${tn(m.t1)}</button>
         <span style="color:#333;font-size:.65rem;flex-shrink:0">vs</span>
         <button class="ko-pick-btn${w===m.t2?" ko-win":""}${tbd?" ko-tbd":""}"
-          onclick="pickAdminKO('${prefix}',${i},'${s2}')">${f(m.t2)} ${tn(m.t2)}</button>
+          onclick="pickAdminKO('${prefix}',${i},'${s2}')">${lb2}${f(m.t2)} ${tn(m.t2)}</button>
       </div>`;
     });
     return h+"</div>";
