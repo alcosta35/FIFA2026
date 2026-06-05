@@ -1697,8 +1697,8 @@ async function doSubmit(){
     showDone();
   }catch(e){
     btn.disabled=false;
-    btn.textContent=$.lang==="pt"?"🔒 Confirmar e Bloquear":"🔒 Lock & Submit";
-    alert(($.lang==="pt"?"Erro:\n":"Error:\n")+e.message);
+    btn.textContent="🔒 Lock & Submit";
+    alert("❌ Error saving bet:\n" + (e.message||"Unknown error") + "\n\nMake sure the phase is Open in Admin.");
   }
 }
 function showDone(){
@@ -2122,14 +2122,12 @@ async function saveResults(){
   if($.adminFinal.runnerUp)payload.runnerUp=$.adminFinal.runnerUp;
   if($.adminFinal.third)payload.third=$.adminFinal.third;
   if($.adminFinal.fourth)payload.fourth=$.adminFinal.fourth;
-  // Phase state from toggles
-  if(Object.keys(_pendingPhaseState).length){
-    payload.phaseState={};
-    PHASES.forEach(p=>{
-      const track=document.getElementById(`ptog-${p}`);
-      if(track)payload.phaseState[p+"Open"]=track.classList.contains("on");
-    });
-  }
+  // Phase state — always send current toggle states on every save
+  payload.phaseState={};
+  PHASES.forEach(p=>{
+    const track=document.getElementById(`ptog-${p}`);
+    if(track)payload.phaseState[p+"Open"]=track.classList.contains("on");
+  });
   const msg=document.getElementById("admin-msg");
   try{
     const res=await fetch("/api/results",{
