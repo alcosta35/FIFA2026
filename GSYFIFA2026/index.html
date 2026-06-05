@@ -236,14 +236,24 @@ footer{text-align:center;padding:.75rem;color:#1a1a2a;font-size:.65rem;margin-to
   <!-- Step 1: Groups -->
   <div id="s1" class="step" style="display:none">
     <div class="ph">
-      <h2 data-pt="Fase de Grupos" data-en="Group Stage">Fase de Grupos</h2>
-      <p data-pt="Preencha o placar de todos os 72 jogos · 12 grupos × 6 jogos" data-en="Fill in scores for all 72 matches">Preencha o placar de todos os 72 jogos</p>
+      <h2 data-pt="Fase de Grupos" data-en="Group Stage">Group Stage</h2>
+      <p data-pt="Preencha o placar dos jogos · salve o progresso e volte quando quiser" data-en="Fill in match scores · save progress and return anytime">Fill in match scores · save progress and return anytime</p>
     </div>
+    <!-- Progress bar + save in place -->
+    <div style="background:rgba(201,162,39,.07);border:1px solid rgba(201,162,39,.2);border-radius:8px;padding:.6rem .85rem;margin-bottom:.6rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+      <span id="gs-count" style="font-size:.8rem;color:#aaa;flex:1">0/72 matches filled</span>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span id="gs-save-msg" style="display:none;font-size:.75rem;color:var(--grn)">✅ Saved!</span>
+        <button id="gs-save-btn" onclick="saveGroupsInPlace()" style="padding:.45rem .9rem;border-radius:7px;border:1px solid rgba(201,162,39,.4);background:rgba(201,162,39,.12);color:var(--gold);font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit">💾 Save Progress</button>
+      </div>
+    </div>
+    <!-- Progress track per group -->
+    <div id="gs-pbar" style="display:flex;gap:2px;margin-bottom:.6rem;height:4px;border-radius:3px;overflow:hidden;background:#0c1520"></div>
     <div class="grp-tabs" id="gtabs"></div>
     <div id="gpanels"></div>
     <div class="nav-btns">
-      <button class="btn-sec" onclick="showStep(0)" data-pt="← Voltar" data-en="← Back">← Voltar</button>
-      <button class="btn" id="b1" style="flex:1" disabled onclick="showStep(7)" data-pt="Revisar →" data-en="Review →">Revisar →</button>
+      <button class="btn-sec" onclick="showStep(0)" data-pt="← Voltar" data-en="← Back">← Back</button>
+      <button class="btn" id="b1" style="flex:1" disabled onclick="showStep(7)" data-pt="Revisar →" data-en="Review →">Review →</button>
     </div>
   </div>
 
@@ -1222,7 +1232,7 @@ function showStep(s){
   if(s>0&&s<9){hist.style.display="block";renderPhaseHistory();}
   else{hist.style.display="none";}
 
-  if(s===1){renderGroups();document.getElementById("b1").disabled=!allDone();}
+  if(s===1){renderGroups();updateGroupsProgress();}
   if(s===2)renderKOForm("kr32","r32",buildR32fromOfficialResults(),16,"b2");
   if(s===3)renderKOForm("kr16","r16",buildKORound($.results.r32,R16P),8,"b3");
   if(s===4)renderKOForm("kqf","qf",buildKORound($.results.r16,QFP),4,"b4");
@@ -1461,6 +1471,46 @@ function buildKORound(officialPicks,pairs){
 function isDone(g){const sc=$.gs[g];return sc&&MP.every((_,i)=>sc[i]?.h!==""&&sc[i]?.a!==""&&sc[i]?.h!=null);}
 function allDone(){return GK.every(isDone);}
 
+function updateGroupsProgress(){
+  const filled=GK.reduce((n,g)=>n+MP.filter((_,i)=>$.gs[g]?.[i]?.h!==""&&$.gs[g]?.[i]?.h!=null).length,0);
+  const countEl=document.getElementById("gs-count");
+  if(countEl)countEl.textContent=`${filled}/72 matches filled`;
+  // Progress bar: one segment per group, green if done
+  const pbar=document.getElementById("gs-pbar");
+  if(pbar)pbar.innerHTML=GK.map(g=>{
+    const gFilled=MP.filter((_,i)=>$.gs[g]?.[i]?.h!==""&&$.gs[g]?.[i]?.h!=null).length;
+    const pct=Math.round(gFilled/6*100);
+    const col=isDone(g)?"var(--grn)":gFilled>0?"var(--gold)":"#1a2438";
+    return`<div style="flex:1;background:${col};transition:background .3s"></div>`;
+  }).join("");
+  // Enable Review button as soon as at least 1 match is entered
+  const b1=document.getElementById("b1");
+  if(b1)b1.disabled=filled===0;
+}
+
+async function saveGroupsInPlace(){
+  const btn=document.getElementById("gs-save-btn");
+  const msg=document.getElementById("gs-save-msg");
+  if(btn){btn.disabled=true;btn.textContent="Saving...";}
+  const payload={player:$.player,phase:"groups",groupScores:$.gs};
+  try{
+    const res=await fetch("/api/bet",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(!res.ok)throw new Error((await res.json()).error||res.statusText);
+    // Update local cache so phase history shows correct count
+    const idx=$.existingBets.findIndex(b=>b.phase==="groups");
+    const rec={phase:"groups",groupScores:JSON.parse(JSON.stringify($.gs)),
+               player:$.player,score:0,submittedAt:new Date().toISOString()};
+    if(idx>=0)$.existingBets[idx]=rec; else $.existingBets.push(rec);
+    renderPhaseHistory();
+    if(msg){msg.style.display="inline";setTimeout(()=>{msg.style.display="none";},3000);}
+  }catch(e){
+    alert("❌ Save failed: "+(e.message||"Unknown error")+
+          "\nMake sure the Groups phase is Open in Admin.");
+  }
+  if(btn){btn.disabled=false;btn.textContent="💾 Save Progress";}
+}
+
 function setScore(g,i,side,val){
   const v=val===""?"":String(Math.max(0,Math.min(99,parseInt(val)||0)));
   if(!$.gs[g])$.gs[g]=MP.map(()=>({h:"",a:""}));
@@ -1468,7 +1518,7 @@ function setScore(g,i,side,val){
   updStUser(g);
   const tb=document.querySelector(`.gtab[data-g="${g}"]`);
   if(tb){tb.classList.toggle("dn",isDone(g));tb.textContent=`${g}${isDone(g)?" ✓":""}`;}
-  document.getElementById("b1").disabled=!allDone();
+  updateGroupsProgress();
 }
 function updStUser(g){
   const el=document.getElementById(`std-${g}`);if(!el)return;
