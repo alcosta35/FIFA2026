@@ -27,10 +27,11 @@ from flask_cors import CORS
 app      = Flask(__name__)
 CORS(app)
 
-DATA_DIR  = os.environ.get("GSY_DATA_DIR",  "/opt/gsyfifa2026")
-BETS_FILE = os.path.join(DATA_DIR, "bets.json")
-RES_FILE  = os.path.join(DATA_DIR, "results.json")
-ADMIN_PIN = os.environ.get("GSY_ADMIN_PIN", "gsy2026")
+DATA_DIR    = os.environ.get("GSY_DATA_DIR",  "/opt/gsyfifa2026")
+BETS_FILE   = os.path.join(DATA_DIR, "bets.json")
+RES_FILE    = os.path.join(DATA_DIR, "results.json")
+PAYEES_FILE = os.path.join(DATA_DIR, "payees.json")
+ADMIN_PIN   = os.environ.get("GSY_ADMIN_PIN", "gsy2026")
 
 GK        = list("ABCDEFGHIJKL")
 PHASES    = ["groups", "r32", "r16", "qf", "sf", "final"]
@@ -272,11 +273,43 @@ def scoreboard():
     with _lock:
         bets    = _read(BETS_FILE, [])
         results = _read(RES_FILE, {})
+        payees  = _read(PAYEES_FILE, {})
     rows = _aggregate_players(bets, results)
     rows.sort(key=lambda x: x["score"], reverse=True)
     for i, r in enumerate(rows):
         r["rank"] = i + 1
+        r["paid"] = payees.get(r["email"], False)
     return jsonify({"count": len(rows), "scoreboard": rows})
+
+
+@app.route("/api/payees", methods=["GET"])
+def get_payees():
+    if request.headers.get("X-Admin-Pin", "") != ADMIN_PIN:
+        return jsonify({"error": "Unauthorized"}), 403
+    with _lock:
+        payees = _read(PAYEES_FILE, {})
+    return jsonify({"payees": payees})
+
+
+@app.route("/api/payees", methods=["POST"])
+def set_payee():
+    if request.headers.get("X-Admin-Pin", "") != ADMIN_PIN:
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "No data"}), 400
+    email = (data.get("email") or "").lower().strip()
+    paid  = bool(data.get("paid", False))
+    if not email:
+        return jsonify({"error": "Email required"}), 400
+    with _lock:
+        payees = _read(PAYEES_FILE, {})
+        if paid:
+            payees[email] = True
+        else:
+            payees.pop(email, None)
+        _write(PAYEES_FILE, payees)
+    return jsonify({"ok": True, "email": email, "paid": paid})
 
 
 @app.route("/api/score", methods=["GET"])

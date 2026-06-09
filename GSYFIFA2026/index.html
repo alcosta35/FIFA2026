@@ -155,6 +155,9 @@ input:focus{border-color:var(--gold)}
 .score-card{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:1rem;margin-bottom:.75rem}
 .det-row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid #0c1520;font-size:.82rem}
 .det-key{color:#666}.det-val{color:var(--gold);font-weight:700}
+.paid-badge{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;background:#1a8c1f;color:#7eff84;font-size:.6rem;font-weight:700;border-radius:3px;margin-right:3px;flex-shrink:0;line-height:1}
+.prize-row{display:flex;align-items:center;justify-content:space-between;padding:.35rem .5rem;border-bottom:1px solid #0c1520;font-size:.82rem}
+.prize-row:last-child{border-bottom:none}
 footer{text-align:center;padding:.75rem;color:#1a1a2a;font-size:.65rem;margin-top:.5rem}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:#09111e}::-webkit-scrollbar-thumb{background:#1a2438;border-radius:3px}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -388,6 +391,7 @@ footer{text-align:center;padding:.75rem;color:#1a1a2a;font-size:.65rem;margin-to
     <div id="pin-err" class="alert alert-err" style="display:none" data-pt="PIN incorreto" data-en="Incorrect PIN">PIN incorreto</div>
   </div>
   <div id="admin-panel" style="display:none">
+    <div id="admin-payees-section" style="margin-bottom:.75rem"></div>
     <div id="admin-results-form"></div>
     <button class="btn btn-grn" onclick="saveResults()" data-pt="💾 Salvar Resultados" data-en="💾 Save Results">💾 Salvar Resultados</button>
     <div id="admin-msg" class="alert" style="display:none;margin-top:.75rem"></div>
@@ -1808,36 +1812,73 @@ async function loadScore(){
 }
 
 // ══════════════════════════ SCOREBOARD ══════════════════════════
+function _calcPrizes(scoreboard){
+  const paid=scoreboard.filter(r=>r.paid);
+  const total=paid.length*10;
+  const shares=[0.40,0.30,0.20,0.10];
+  return{total,paidCount:paid.length,
+    winners:paid.slice(0,4).map((p,i)=>({...p,share:shares[i],prize:+(total*shares[i]).toFixed(2)}))};
+}
+
 async function loadBoard(){
   const el=document.getElementById("board-result");
   el.innerHTML=`<div style="text-align:center;padding:2rem;color:#444;font-size:1.5rem"><span class="spinner">⏳</span></div>`;
   try{
     const res=await fetch("/api/scoreboard");
     const data=await res.json();
-    const pt=$.lang==="pt";
     if(!data.scoreboard||!data.scoreboard.length){
-      el.innerHTML=`<div style="text-align:center;color:#444;padding:2rem">${pt?"Nenhum palpite registrado ainda.":"No bets yet."}</div>`;
+      el.innerHTML=`<div style="text-align:center;color:#444;padding:2rem">No bets yet.</div>`;
       return;
     }
     const medals=["🥇","🥈","🥉"];
     const phaseLabels={groups:"G",r32:"R32",r16:"R16",qf:"QF",sf:"SF",final:"F"};
-    el.innerHTML=`<div class="card" style="padding:0">
+    const prizes=_calcPrizes(data.scoreboard);
+
+    // Prize pool card
+    let prizeHTML="";
+    if(prizes.paidCount>0){
+      const winRows=prizes.winners.map((w,i)=>`
+        <div class="prize-row">
+          <div style="display:flex;align-items:center;gap:.35rem">
+            <span style="color:${["#c9a227","#aaa","#cd7f32","#777"][i]};font-weight:700">${medals[i]||`${i+1}th`}</span>
+            <span class="paid-badge">$</span>
+            <span style="color:#ddd">${w.name}</span>
+          </div>
+          <div style="display:flex;gap:.75rem;align-items:center">
+            <span style="font-size:.7rem;color:#556">${Math.round(w.share*100)}%</span>
+            <span style="color:#1a8c1f;font-weight:700">$${w.prize}</span>
+          </div>
+        </div>`).join("");
+      prizeHTML=`<div class="card" style="margin-bottom:.5rem;border-color:rgba(26,140,31,.3)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+          <div class="ctitle" style="margin:0">💰 Prize Pool</div>
+          <div style="font-size:1.2rem;font-weight:700;color:#1a8c1f">$${prizes.total}</div>
+        </div>
+        <div style="font-size:.72rem;color:#556;margin-bottom:.5rem">${prizes.paidCount} paid player${prizes.paidCount!==1?"s":""}  ×  $10 entry</div>
+        ${winRows}
+      </div>`;
+    }
+
+    const rows=data.scoreboard.map(r=>{
+      const phaseSummary=Object.entries(r.phases||{}).map(([p,v])=>`${phaseLabels[p]||p}:${v.score}`).join(" ");
+      return`<div class="board-row">
+        <div class="b-rank" style="color:${r.rank<=3?"var(--gold)":"#555"}">${medals[r.rank-1]||r.rank}</div>
+        <div class="b-name">
+          ${r.paid?`<span class="paid-badge" title="Paid entry">$</span>`:""}${r.name}<br>
+          <span style="font-size:.62rem;color:#334">${r.email.replace(/(.{2}).+(@.+)/,"$1***$2")}</span><br>
+          <span style="font-size:.62rem;color:#334">${phaseSummary}</span>
+        </div>
+        <div class="b-score">${r.score}</div>
+      </div>`;
+    }).join("");
+
+    el.innerHTML=prizeHTML+`<div class="card" style="padding:0">
       <div style="padding:.65rem 1rem;border-bottom:1px solid var(--bdr);display:flex;font-size:.7rem;color:#444;font-weight:600">
         <div style="width:28px">#</div>
-        <div style="flex:1">${pt?"Jogador":"Player"}</div>
+        <div style="flex:1">Player</div>
         <div style="min-width:60px;text-align:right">Pts</div>
       </div>
-      ${data.scoreboard.map(r=>{
-        const phaseSummary=Object.entries(r.phases||{}).map(([p,v])=>`${phaseLabels[p]||p}:${v.score}`).join(" ");
-        return`<div class="board-row">
-          <div class="b-rank" style="color:${r.rank<=3?"var(--gold)":"#555"}">${medals[r.rank-1]||r.rank}</div>
-          <div class="b-name">${r.name}<br>
-            <span style="font-size:.62rem;color:#334">${r.email.replace(/(.{2}).+(@.+)/,"$1***$2")}</span><br>
-            <span style="font-size:.62rem;color:#334">${phaseSummary}</span>
-          </div>
-          <div class="b-score">${r.score}</div>
-        </div>`;
-      }).join("")}
+      ${rows}
     </div>`;
   }catch(e){el.innerHTML=`<div class="alert alert-err">${e.message}</div>`;}
 }
@@ -2051,6 +2092,7 @@ async function renderAdminForm(){
     }
   });
   _adminBuildKO();
+  loadPayeesAdmin();
 }
 
 // Phase toggle (client-side only until Save is clicked)
@@ -2210,6 +2252,59 @@ async function saveResults(){
 }
 
 // ══════════════════════════ VIEW SWITCHING ══════════════════════════
+// ══════════════════════════ PAYEES ADMIN ══════════════════════════
+async function loadPayeesAdmin(){
+  const el=document.getElementById("admin-payees-section");
+  if(!el)return;
+  el.innerHTML=`<div style="text-align:center;padding:1rem;color:#444"><span class="spinner">⏳</span></div>`;
+  try{
+    const [sbRes,pyRes]=await Promise.all([
+      fetch("/api/scoreboard"),
+      fetch("/api/payees",{headers:{"X-Admin-Pin":$.adminPin}})
+    ]);
+    const sb=await sbRes.json();
+    const py=pyRes.ok?await pyRes.json():{payees:{}};
+    const players=sb.scoreboard||[];
+    const payees=py.payees||{};
+    if(!players.length){el.innerHTML="";return;}
+    const prizes=_calcPrizes(players.map(p=>({...p,paid:payees[p.email]||false})));
+    const rows=players.map(r=>{
+      const paid=payees[r.email]||false;
+      const btnCls=paid
+        ?"background:rgba(26,140,31,.25);border-color:#1a8c1f;color:#7eff84"
+        :"background:#09111e;border-color:#1a2438;color:#556";
+      return`<div style="display:flex;align-items:center;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #0c1520;font-size:.8rem">
+        <span style="color:#555;min-width:22px;text-align:center;font-size:.75rem">${r.rank}</span>
+        <span style="flex:1;color:#ccc">${r.name}
+          <br><span style="font-size:.62rem;color:#445">${r.email}</span></span>
+        <span style="color:var(--gold);font-weight:700;min-width:36px;text-align:right;font-size:.85rem">${r.score}pts</span>
+        <button onclick="togglePayee('${r.email.replace(/'/g,"\'")}',${paid})"
+          style="padding:.3rem .65rem;border-radius:6px;border:1px solid;cursor:pointer;font-size:.72rem;font-weight:700;font-family:inherit;transition:all .15s;${btnCls}">
+          ${paid?"$ Paid":"Mark $"}
+        </button>
+      </div>`;
+    }).join("");
+    el.innerHTML=`<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <div class="ctitle" style="margin:0">💰 Payees — Prize Pool</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#1a8c1f">$${prizes.total}</div>
+      </div>
+      <div style="font-size:.72rem;color:#556;margin-bottom:.6rem">${prizes.paidCount} paid  ×  $10  ·  Top 4 payees: 40% / 30% / 20% / 10%</div>
+      ${rows}
+    </div>`;
+  }catch(e){el.innerHTML=`<div class="alert alert-err">${e.message}</div>`;}
+}
+
+async function togglePayee(email,currentlyPaid){
+  try{
+    const res=await fetch("/api/payees",{method:"POST",
+      headers:{"Content-Type":"application/json","X-Admin-Pin":$.adminPin},
+      body:JSON.stringify({email,paid:!currentlyPaid})});
+    if(!res.ok)throw new Error((await res.json()).error||res.statusText);
+    loadPayeesAdmin(); // refresh list
+  }catch(e){alert("Error: "+e.message);}
+}
+
 function switchView(v){
   document.querySelectorAll(".view").forEach(el=>el.classList.remove("on"));
   document.getElementById(v).classList.add("on");
